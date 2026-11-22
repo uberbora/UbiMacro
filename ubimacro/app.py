@@ -18,7 +18,7 @@ from .keys import display_name, key_to_dict, keys_match, make_key
 from .player import Player
 from .recorder import Recorder
 from .theme import C, R_CARD, R_CONTROL, R_HERO, R_LIST
-from .winfocus import focus_game, system_language
+from .winfocus import find_window, focus_game, list_windows, relative_to_foreground, system_language
 
 DEFAULTS = {
     "lang": None,          # filled from the system language on first run
@@ -37,7 +37,12 @@ DEFAULTS = {
     "countdown": 3,
     "cap_gap": 2.0,
     "topmost": True,
+    "background": False,   # experimental: send input to one window with window messages
+    "bg_window": "Roblox",
+    "fake_focus": True,
 }
+
+IS_WINDOWS = sys.platform == "win32"
 
 PLAYBACK_KEYS = ("loops", "speed", "loop_delay", "humanize", "stop_after", "move_to_clicks")
 UNDO_LIMIT = 50
@@ -99,7 +104,8 @@ class App:
         self._armed_job = None
         self._mode_seen = None
 
-        self.recorder = Recorder()
+        self.recorder = Recorder(relative_fn=relative_to_foreground)
+        self._testing = False
         self.player = Player(
             backend,
             on_progress=lambda n, total: self.q.put(("progress", n, total)),
@@ -145,6 +151,9 @@ class App:
         self.v_focus_game = tk.BooleanVar(value=s["focus_game"])
         self.v_topmost = tk.BooleanVar(value=s["topmost"])
         self.v_move_following = tk.BooleanVar(value=True)
+        self.v_background = tk.BooleanVar(value=s["background"] and IS_WINDOWS)
+        self.v_bg_window = tk.StringVar(value=s["bg_window"])
+        self.v_fake_focus = tk.BooleanVar(value=s["fake_focus"])
         self.v_ev_time = tk.StringVar()
         self.v_ev_gap = tk.StringVar()
 
@@ -162,6 +171,9 @@ class App:
         s["auto_trim"] = bool(self.v_auto_trim.get())
         s["focus_game"] = bool(self.v_focus_game.get())
         s["topmost"] = bool(self.v_topmost.get())
+        s["background"] = bool(self.v_background.get()) and IS_WINDOWS
+        s["bg_window"] = self.v_bg_window.get().strip() or "Roblox"
+        s["fake_focus"] = bool(self.v_fake_focus.get())
         return s
 
     def _save_settings(self):
@@ -222,8 +234,8 @@ class App:
     def switch(self, parent, label, var, command=None):
         return ctk.CTkSwitch(parent, text=label, variable=var, command=command or self._save_settings,
                              font=th.font("body", 15), text_color=C["ink"], progress_color=C["accent"],
-                             fg_color=C["outline"], button_color=("#ffffff", "#ebe8f3"),
-                             button_hover_color=("#f2f0f7", "#ffffff"), switch_width=40, switch_height=22)
+                             fg_color=C["outline"], button_color=("#ffffff", "#f1e8ee"),
+                             button_hover_color=("#f6f0f4", "#ffffff"), switch_width=40, switch_height=22)
 
     def segmented(self, parent, options, current, command, height=36):
         """Ubi SegmentedControl: a recessed track with the chosen segment raised."""
@@ -504,6 +516,8 @@ class App:
         self.switch(blk, tr("move_to_clicks"), self.v_move_clicks).pack(anchor="w", padx=14, pady=14)
         self.hint(page, tr("focus_hint")).pack(fill="x", padx=16, pady=(8, 0))
 
+        self._build_background(page)
+
         blk = self._settings_block(page, tr("window"))
         self.switch(blk, tr("topmost"), self.v_topmost, command=self._on_topmost).pack(anchor="w", padx=14, pady=14)
 
@@ -515,6 +529,103 @@ class App:
 
         self.text(page, f"UbiMacro {__version__}", "mono", 11, "muted").pack(fill="x", padx=16, pady=(18, 20))
         self._refresh_hotkey_labels()
+
+    def _build_background(self, page):
+        blk = self._settings_block(page, tr("background"))
+        sw = self.switch(blk, tr("bg_switch"), self.v_background, command=self._on_background)
+        sw.pack(anchor="w", padx=14, pady=(14, 0))
+        row = ctk.CTkFrame(blk, fg_color="transparent")
+        row.pack(fill="x", padx=14, pady=(12, 0))
+        self.eyebrow(row, tr("bg_window")).pack(anchor="w", pady=(0, 6))
+        line = ctk.CTkFrame(row, fg_color="transparent")
+        line.pack(fill="x")
+        self.win_menu = ctk.CTkOptionMenu(
+            line, variable=self.v_bg_window, values=[self.v_bg_window.get()], height=36, corner_radius=R_CONTROL,
+            fg_color=C["surface2"], button_color=C["surface2"], button_hover_color=C["line"], text_color=C["ink"],
+            dropdown_fg_color=C["surface"], dropdown_hover_color=C["surface2"], dropdown_text_color=C["ink"],
+            font=th.font("body", 14), dropdown_font=th.font("body", 13), dynamic_resizing=False, width=250,
+            command=lambda _v: self._save_settings())
+        self.win_menu.pack(side="left", fill="x", expand=True)
+        self.button(line, tr("refresh"), self.refresh_windows, height=36).pack(side="left", padx=(8, 0))
+        self.switch(blk, tr("fake_focus"), self.v_fake_focus).pack(anchor="w", padx=14, pady=(12, 0))
+        self.b_bg_test = self.button(blk, tr("bg_test"), self.run_background_test, "primary")
+        self.b_bg_test.pack(fill="x", padx=14, pady=14)
+        self.hint(page, tr("bg_hint") if IS_WINDOWS else tr("bg_windows_only")).pack(fill="x", padx=16, pady=(8, 0))
+        if not IS_WINDOWS:
+            for w in (sw, self.win_menu, self.b_bg_test):
+                w.configure(state="disabled")
+        self.refresh_windows(quiet=True)
+
+    def refresh_windows(self, quiet=False):
+        titles = []
+        for _hwnd, title in list_windows():
+            if title not in titles and title != self.root.title():
+                titles.append(title)
+        current = self.v_bg_window.get()
+        roblox = [t for t in titles if t.lower() == "roblox"]
+        others = sorted((t for t in titles if t.lower() != "roblox"), key=str.lower)
+        values = roblox + others
+        if current not in values:
+            values.insert(0, current)
+        self.win_menu.configure(values=values[:40] or ["Roblox"])
+        if not quiet:
+            self.show_toast(tr("toast_windows", n=len(titles)))
+
+    def _on_background(self):
+        self._save_settings()
+        if self.settings["background"]:
+            self.show_toast(tr("toast_bg_on", name=self.settings["bg_window"]))
+        self._set_state(self.state)
+
+    def _make_backend(self, force_background=False):
+        """The input backend for the next playback, or None if it can't start."""
+        s = self._read_vars()
+        if not (s["background"] or force_background):
+            return self.backend
+        if not IS_WINDOWS:
+            self.show_toast(tr("bg_windows_only"))
+            return None
+        hwnd = find_window([s["bg_window"]])
+        if not hwnd:
+            self.show_toast(tr("toast_no_window", name=s["bg_window"]))
+            return None
+        from .background import MessageBackend
+
+        return MessageBackend(hwnd, fake_focus=s["fake_focus"])
+
+    def run_background_test(self):
+        """Count down, then send a jump, a 1 s walk and three clicks to the
+        chosen window with window messages, while another window is in front."""
+        if self.state != "idle":
+            self.show_toast(tr("toast_busy"))
+            return
+        if self._make_backend(force_background=True) is None:
+            return
+        self._start_countdown(5, self._run_background_test_now)
+        self.hero_sub.configure(text=tr("sub_test_switch"))
+        self.show_page("home")
+
+    def _run_background_test_now(self):
+        backend = self._make_backend(force_background=True)
+        if backend is None:
+            return
+        space, w = make_key("space", 0x20), make_key("w", 0x57)
+        events = [
+            {"t": 0.0, "type": "key", "action": "down", "key": space},
+            {"t": 0.15, "type": "key", "action": "up", "key": space},
+            {"t": 0.6, "type": "key", "action": "down", "key": w},
+            {"t": 1.6, "type": "key", "action": "up", "key": w},
+        ]
+        for i in range(3):
+            t = 2.0 + i * 0.4
+            events += [{"t": t, "type": "click", "action": "down", "button": "left"},
+                       {"t": t + 0.08, "type": "click", "action": "up", "button": "left"}]
+        self._testing = True
+        self.player.backend = backend
+        self._loop_now, self._loop_total, self._loops_done = 1, 1, 0
+        self._play_started = time.time()
+        if self.player.start(events, loops=1):
+            self._set_state("playing", tr("st_testing"))
 
     # ================================================================ small updates
     def show_toast(self, message, ms=2600):
@@ -591,6 +702,8 @@ class App:
             "recording": tr("sub_recording", rec=self._hk("record")),
             "playing": tr("sub_playing", play=self._hk("play")),
         }
+        if state == "idle" and self.events and self.settings.get("background"):
+            subs["idle"] = tr("sub_ready_bg", play=self._hk("play"), name=self.settings["bg_window"])
         self.hero_title.configure(text=title or titles[state])
         self.hero_sub.configure(text=sub or subs[state])
         self.b_record.configure(
@@ -699,8 +812,12 @@ class App:
             self.hero_sub.configure(text=tr("sub_recording_n", rec=self._hk("record"), n=self.recorder.event_count))
         elif self.state == "playing":
             total = "∞" if self._loop_total == 0 else str(self._loop_total)
-            self.hero_sub.configure(text=tr("sub_playing_n", play=self._hk("play"), n=self._loop_now, total=total,
-                                            time=fmt_duration(time.time() - self._play_started)))
+            if not self._testing:
+                where = (" · " + tr("in_background", name=self.settings["bg_window"])) if self.settings.get(
+                    "background") else ""
+                self.hero_sub.configure(text=tr("sub_playing_n", play=self._hk("play"), n=self._loop_now,
+                                                total=total, time=fmt_duration(time.time() - self._play_started))
+                                        + where)
         if ctk.get_appearance_mode() != self._mode_seen:  # "System" theme flipped
             self._style_tree()
         self.root.after(100, self._poll)
@@ -719,7 +836,11 @@ class App:
             done, err, reason = msg[1], msg[2], msg[3]
             self._loops_done = done
             self.stat_vals["loops"].configure(text=str(done))
-            if self.state == "playing":
+            if self._testing:
+                self._testing = False
+                self._set_state("idle")
+                self.show_toast(tr("toast_test_done"), ms=9000)
+            elif self.state == "playing":
                 self._set_state("idle")
                 if reason == "time_limit":
                     self.show_toast(tr("toast_time_limit", n=done))
@@ -843,7 +964,9 @@ class App:
                 self.show_toast(tr("toast_no_macro"))
                 return
             s = self._read_vars()
-            if s["focus_game"] and focus_game():
+            if s["background"]:
+                self.start_playback()
+            elif s["focus_game"] and focus_game():
                 self.root.after(350, self.start_playback)   # let the game take focus first
             elif s["countdown"] > 0:
                 self._start_countdown(s["countdown"], self.start_playback)
@@ -856,6 +979,10 @@ class App:
             return
         s = self._read_vars()
         self._save_settings()
+        backend = self._make_backend()
+        if backend is None:
+            return
+        self.player.backend = backend
         self._loop_now, self._loop_total, self._loops_done = 1, s["loops"], 0
         self._play_started = time.time()
         ok = self.player.start(

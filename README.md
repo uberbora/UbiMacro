@@ -62,6 +62,21 @@ Pick one to edit it:
 the ◐ button at the top), hotkeys, recording and playback options, keep on top,
 and a button that opens the folder with your macros.
 
+## Background playback (experimental)
+
+Want Roblox to keep going on another screen, or behind your other windows, while
+you work? Settings → **Background**:
+
+1. Open Roblox and pick it under **Send input to** (press Refresh if it's not listed).
+2. Press **Run background test**, then click into another window within 5 seconds.
+3. Watch Roblox: it should jump, walk forward and click 3 times.
+4. Try again with **Make the window think it's active** switched the other way.
+
+If it works, turn on **Play in the background** and F6 plays your macro in
+Roblox while your keyboard and mouse stay yours. Not every game accepts input
+this way (many only listen while they are the active window), which is why it's
+marked experimental.
+
 ## Features
 
 | | |
@@ -77,6 +92,7 @@ and a button that opens the folder with your macros.
 | Safe stop | Stopping always releases any held keys/buttons, so W never gets stuck down. |
 | Two languages | English and Turkish; it picks your Windows language the first time. |
 | Dark and light | Dark by default, as in every Ubi desktop app. |
+| Background mode | Experimental: send input to one window while you use the PC. |
 
 Settings and macros are stored in `%APPDATA%\UbiMacro`.
 
@@ -96,7 +112,7 @@ Settings and macros are stored in `%APPDATA%\UbiMacro`.
 UbiMacro uses the **Ubi** design system shared by the Ubi apps: Bricolage
 Grotesque for titles and numbers, Figtree for text, DM Mono for small labels,
 flat cards with hairline borders and one accent colour. UbiMacro's accent is
-violet. Its `macro-*` colours are in `ubimacro/theme.py`; every text colour pair
+magenta. Its `macro-*` colours are in `ubimacro/theme.py`; every text colour pair
 passes 4.5:1 contrast in both themes. The fonts ship inside the app under the
 SIL Open Font License (see `ubimacro/assets/fonts`).
 
@@ -115,6 +131,8 @@ ubimacro/recorder.py   recording
 ubimacro/player.py     playback thread (loops, speed, humanize, time limit)
 ubimacro/backends.py   Windows SendInput scancode backend (+ pynput fallback)
 ubimacro/macro.py      save/load, editing helpers, Anti-AFK preset
-ubimacro/winfocus.py   switching to the Roblox window, system language
+ubimacro/winfocus.py   finding/switching windows, system language
+ubimacro/background.py window-message backend for background playback
+tests_windows/         Windows-only check that window messages arrive
 tests/                 python -m unittest discover -s tests
 ```

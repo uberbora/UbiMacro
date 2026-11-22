@@ -64,6 +64,26 @@ STRINGS = {
         "window": "Window", "topmost": "Keep this window on top",
         "storage": "Storage", "storage_text": "Macros and settings are kept in your AppData folder.",
         "open_folder": "Open folder",
+        # background
+        "background": "Background (experimental)",
+        "bg_switch": "Play in the background",
+        "bg_window": "Send input to",
+        "refresh": "Refresh",
+        "fake_focus": "Make the window think it's active",
+        "bg_test": "Run background test",
+        "bg_hint": "Sends keys and clicks straight to one window, so it can sit on another screen or behind "
+                   "your work. Not every game accepts this. To test: open Roblox, press Run background test, "
+                   "then click into another window within 5 seconds. Roblox should jump, walk forward and "
+                   "click 3 times. Try it with the switch above on and off.",
+        "bg_windows_only": "Background playback only works on Windows.",
+        "st_testing": "Testing",
+        "sub_test_switch": "Click into another window now and keep Roblox visible.",
+        "sub_ready_bg": "{play} plays in the background in {name}. Your keyboard and mouse stay free.",
+        "in_background": "in the background in {name}",
+        "toast_test_done": "Test done · did Roblox jump, walk and click?",
+        "toast_no_window": "Couldn't find a window called {name}",
+        "toast_windows": "{n} windows found",
+        "toast_bg_on": "Background playback on · sending to {name}",
         # toasts
         "toast_recorded": "Recorded · {n} events", "toast_nothing": "Nothing recorded · old macro kept",
         "toast_no_macro": "No macro yet · record one or load the preset",
@@ -143,6 +163,25 @@ STRINGS = {
         "window": "Pencere", "topmost": "Bu pencere hep üstte kalsın",
         "storage": "Depolama", "storage_text": "Makrolar ve ayarlar AppData klasöründe tutulur.",
         "open_folder": "Klasörü aç",
+        "background": "Arka plan (deneysel)",
+        "bg_switch": "Arka planda oynat",
+        "bg_window": "Girdinin gideceği pencere",
+        "refresh": "Yenile",
+        "fake_focus": "Pencereye etkin olduğunu düşündür",
+        "bg_test": "Arka plan testini çalıştır",
+        "bg_hint": "Tuşları ve tıklamaları doğrudan tek bir pencereye gönderir; pencere başka bir ekranda ya da "
+                   "işinin arkasında durabilir. Her oyun bunu kabul etmez. Test için: Roblox'u aç, Arka plan "
+                   "testini çalıştır'a bas, sonra 5 saniye içinde başka bir pencereye tıkla. Roblox zıplamalı, "
+                   "ileri yürümeli ve 3 kez tıklamalı. Yukarıdaki anahtar açıkken ve kapalıyken dene.",
+        "bg_windows_only": "Arka planda oynatma yalnızca Windows'ta çalışır.",
+        "st_testing": "Test ediliyor",
+        "sub_test_switch": "Şimdi başka bir pencereye tıkla ve Roblox'u görünür tut.",
+        "sub_ready_bg": "{play} arka planda {name} penceresinde oynatır. Klavyen ve faren serbest kalır.",
+        "in_background": "arka planda, {name}",
+        "toast_test_done": "Test bitti · Roblox zıpladı, yürüdü ve tıkladı mı?",
+        "toast_no_window": "{name} adında bir pencere bulunamadı",
+        "toast_windows": "{n} pencere bulundu",
+        "toast_bg_on": "Arka planda oynatma açık · {name} penceresine gönderiliyor",
         "toast_recorded": "Kaydedildi · {n} olay", "toast_nothing": "Hiçbir şey kaydedilmedi · eski makro duruyor",
         "toast_no_macro": "Henüz makro yok · bir tane kaydet ya da hazır ayarı yükle",
         "toast_stopped": "Durduruldu", "toast_finished": "Bitti · {n} tur",

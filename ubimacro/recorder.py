@@ -12,8 +12,9 @@ from .keys import key_id
 
 
 class Recorder:
-    def __init__(self, record_moves=False, move_interval=1 / 60, clock=time.perf_counter):
+    def __init__(self, record_moves=False, move_interval=1 / 60, clock=time.perf_counter, relative_fn=None):
         self.record_moves = record_moves
+        self.relative_fn = relative_fn  # (x, y) -> (rx, ry) inside the game window, or None
         self.move_interval = move_interval
         self._clock = clock
         self._lock = threading.Lock()
@@ -95,6 +96,7 @@ class Recorder:
         if injected:
             return
         name = getattr(button, "name", str(button))
+        rel = self.relative_fn(x, y) if self.relative_fn else None
         with self._lock:
             if not self.active:
                 return
@@ -102,16 +104,17 @@ class Recorder:
                 self._held_buttons[name] = (int(x), int(y))
             else:
                 self._held_buttons.pop(name, None)
-            self._events.append(
-                {
-                    "t": self._now(),
-                    "type": "click",
-                    "action": "down" if pressed else "up",
-                    "button": name,
-                    "x": int(x),
-                    "y": int(y),
-                }
-            )
+            ev = {
+                "t": self._now(),
+                "type": "click",
+                "action": "down" if pressed else "up",
+                "button": name,
+                "x": int(x),
+                "y": int(y),
+            }
+            if rel:
+                ev["rx"], ev["ry"] = rel
+            self._events.append(ev)
 
     def on_move(self, x, y, injected=False):
         if injected or not self.record_moves:

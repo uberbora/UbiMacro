@@ -36,6 +36,9 @@ jobs:
           assert ctypes.sizeof(b.INPUT) == 40, ctypes.sizeof(b.INPUT);
           assert b._user32.MapVirtualKeyW(0x57, 0) == 0x11, 'W scancode'"
 
+      - name: Check background messages reach a window
+        run: python -m unittest discover -s tests_windows -v
+
       - name: Check the Ubi fonts load on Windows
         run: >
           python -c "import customtkinter as ctk; from ubimacro import theme as th;
