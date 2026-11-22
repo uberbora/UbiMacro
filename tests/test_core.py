@@ -123,11 +123,11 @@ class PlayerTest(unittest.TestCase):
         be = FakeBackend()
         done = threading.Event()
         result = {}
-        p = Player(be, on_finish=lambda n, e: (result.update(n=n, e=e), done.set()))
+        p = Player(be, on_finish=lambda n, e, r: (result.update(n=n, e=e, r=r), done.set()))
         t0 = time.perf_counter()
         p.start(self._events(), loops=2, loop_delay=0.1)
         self.assertTrue(done.wait(3))
-        self.assertEqual(result, {"n": 2, "e": None})
+        self.assertEqual(result, {"n": 2, "e": None, "r": "done"})
         keys = [c for c in be.calls if c[0] == "key"]
         self.assertEqual(len(keys), 4)
         gap = keys[1][3] - keys[0][3]
@@ -144,7 +144,7 @@ class PlayerTest(unittest.TestCase):
             {"t": 0.0, "type": "key", "action": "down", "key": make_key("w")},
             {"t": 10.0, "type": "key", "action": "up", "key": make_key("w")},
         ]
-        p = Player(be, on_finish=lambda n, e: done.set())
+        p = Player(be, on_finish=lambda n, e, r: done.set())
         p.start(events, loops=0)
         time.sleep(0.1)
         p.stop()
@@ -154,7 +154,7 @@ class PlayerTest(unittest.TestCase):
     def test_speed(self):
         be = FakeBackend()
         done = threading.Event()
-        p = Player(be, on_finish=lambda n, e: done.set())
+        p = Player(be, on_finish=lambda n, e, r: done.set())
         t0 = time.perf_counter()
         p.start([{"t": 0.4, "type": "key", "action": "down", "key": make_key("a")},
                  {"t": 0.4, "type": "key", "action": "up", "key": make_key("a")}], loops=1, speed=4)

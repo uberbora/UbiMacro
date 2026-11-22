@@ -64,6 +64,97 @@ def normalize(events):
     return out
 
 
+# ---------------------------------------------------------------- editing
+# All editing helpers return a new, time-sorted list and never change the
+# input list, so the app can keep the old one for Undo.
+
+def _copy(events):
+    return [dict(e) for e in events]
+
+
+def _r(t):
+    return round(max(0.0, t), 4)
+
+
+def gaps(events):
+    """Seconds between each event and the one before it (first: since start)."""
+    out, prev = [], 0.0
+    for e in events:
+        out.append(e["t"] - prev)
+        prev = e["t"]
+    return out
+
+
+def trim_start(events, keep=0.0):
+    """Remove the delay before the first event (e.g. the 0.121 s from a late click)."""
+    if not events:
+        return []
+    shift = events[0]["t"] - max(0.0, keep)
+    out = _copy(events)
+    for e in out:
+        e["t"] = _r(e["t"] - shift)
+    return out
+
+
+def set_gap(events, index, gap):
+    """Make the pause before event ``index`` exactly ``gap`` seconds.
+
+    Everything after it moves by the same amount, so key holds and the
+    order of events stay intact.
+    """
+    out = _copy(events)
+    prev = out[index - 1]["t"] if index > 0 else 0.0
+    delta = (prev + max(0.0, gap)) - out[index]["t"]
+    for e in out[index:]:
+        e["t"] = _r(e["t"] + delta)
+    return out
+
+
+def set_time(events, index, new_t, move_following=True):
+    """Put event ``index`` at ``new_t`` seconds.
+
+    With ``move_following`` the events after it move along (keeping their
+    spacing); without it only this event moves and the list is re-sorted.
+    """
+    out = _copy(events)
+    if move_following:
+        prev = out[index - 1]["t"] if index > 0 else 0.0
+        return set_gap(events, index, max(0.0, new_t) - prev)
+    out[index]["t"] = _r(new_t)
+    out.sort(key=lambda e: e["t"])
+    return out
+
+
+def shift(events, indices, delta):
+    """Move the chosen events earlier/later by ``delta`` seconds."""
+    chosen = set(indices)
+    out = _copy(events)
+    for i, e in enumerate(out):
+        if i in chosen:
+            e["t"] = _r(e["t"] + delta)
+    out.sort(key=lambda e: e["t"])
+    return out
+
+
+def cap_gaps(events, max_gap):
+    """Shorten every pause longer than ``max_gap`` seconds down to ``max_gap``."""
+    out = _copy(events)
+    removed, prev_orig = 0.0, 0.0
+    for e in out:
+        orig = e["t"]
+        gap = orig - prev_orig
+        if gap > max_gap:
+            removed += gap - max_gap
+        prev_orig = orig
+        e["t"] = _r(orig - removed)
+    return out
+
+
+def delete(events, indices):
+    chosen = set(indices)
+    return [dict(e) for i, e in enumerate(events) if i not in chosen]
+
+
 def _tap(events, t, key, hold):
     events.append({"t": round(t, 3), "type": "key", "action": "down", "key": key})
     events.append({"t": round(t + hold, 3), "type": "key", "action": "up", "key": key})

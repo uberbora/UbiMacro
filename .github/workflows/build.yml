@@ -36,12 +36,30 @@ jobs:
           assert ctypes.sizeof(b.INPUT) == 40, ctypes.sizeof(b.INPUT);
           assert b._user32.MapVirtualKeyW(0x57, 0) == 0x11, 'W scancode'"
 
+      - name: Check the Ubi fonts load on Windows
+        run: >
+          python -c "import customtkinter as ctk; from ubimacro import theme as th;
+          th.load_fonts(); r = ctk.CTk(); f = th.resolve_families(r); print(f);
+          assert f['body'] == 'Figtree' and f['display800'] == 'Bricolage Grotesque ExtraBold' and f['mono'] == 'DM Mono', f;
+          r.destroy()"
+
       - name: Build exe
         run: >
           pyinstaller --noconfirm --onefile --windowed --name UbiMacro
           --hidden-import pynput.keyboard._win32
           --hidden-import pynput.mouse._win32
+          --collect-data customtkinter
+          --add-data "ubimacro/assets;ubimacro/assets"
           run.py
+
+      - name: Smoke-test the built exe starts
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\UbiMacro.exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "UbiMacro.exe exited early with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "exe ran for 8 seconds without crashing"
 
       - uses: actions/upload-artifact@v4
         with:
