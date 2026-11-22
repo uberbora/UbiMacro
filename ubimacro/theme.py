@@ -13,23 +13,23 @@ import os
 import sys
 
 C = {
-    "bg":          ("#eeedf3", "#0f0d16"),   # page
-    "surface":     ("#ffffff", "#18151f"),   # cards, lists, inputs
-    "surface2":    ("#e5e3ee", "#231f2e"),   # recessed fills, segmented track, pressed
-    "line":        ("#d9d6e4", "#2d2839"),   # 1px hairlines (decorative)
-    "outline":     ("#878199", "#6a6380"),   # input borders, passes 3:1
-    "ink":         ("#16131f", "#ebe8f3"),
-    "muted":       ("#5d586c", "#a19bb2"),
-    "accent":      ("#5b3fd0", "#a995ff"),   # UbiMacro violet
-    "accent_hover": ("#4c33b5", "#9a84f5"),
-    "accent_ink":  ("#ffffff", "#0f0d16"),
-    "accent_soft": ("#e6e0fb", "#2a2347"),
+    "bg":          ("#f3eef2", "#120d11"),   # page
+    "surface":     ("#ffffff", "#1b141a"),   # cards, lists, inputs
+    "surface2":    ("#ebe3ea", "#271d25"),   # recessed fills, segmented track, pressed
+    "line":        ("#ded4dc", "#33272f"),   # 1px hairlines (decorative)
+    "outline":     ("#8c7f8a", "#75646f"),   # input and switch borders, passes 3:1
+    "ink":         ("#1d1219", "#f1e8ee"),
+    "muted":       ("#64575f", "#ab9ba6"),
+    "accent":      ("#b01f7a", "#ff7ac6"),   # UbiMacro magenta
+    "accent_hover": ("#971a68", "#ff94d1"),
+    "accent_ink":  ("#ffffff", "#120d11"),
+    "accent_soft": ("#fadcee", "#3d1a30"),
     "gain":        ("#0e7447", "#4cc48a"),   # playing, done
     "gain_bg":     ("#dcf1e6", "#14301f"),
     "warn":        ("#8a5e00", "#f2b35b"),   # countdown, heads-up
     "warn_bg":     ("#fbebd2", "#3a2a12"),
-    "loss":        ("#b8302a", "#ff7c72"),   # recording, delete, errors
-    "loss_bg":     ("#fbe3e1", "#3a1b19"),
+    "loss":        ("#b3361b", "#ff8a6b"),   # recording, delete, errors (orange-red, clear of the magenta)
+    "loss_bg":     ("#fbe4dc", "#3a1d15"),
 }
 
 # Radius scale (px)

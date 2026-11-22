@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- **Play in the background (experimental):** sends keys and clicks straight to one window (e.g. Roblox) with window messages, so it can sit on another screen or behind your work while you use your PC. Settings → Background.
+- **Background test** button: jump, walk forward 1 s and click 3 times in the chosen window while another window is in front, so you can see whether your game accepts background input. Try it with "Make the window think it's active" on and off.
+- Clicks are now also recorded relative to the game window, so background clicks land in the right spot even after you move the window to another screen.
+- **New magenta colours** (violet is reserved for UbiClipper). UbiMacro is now part of the Ubi design system.
+
 ## 1.1.0
 
 - **Türkçe** language, plus English. Picks your Windows language the first time; switch any time in Settings.

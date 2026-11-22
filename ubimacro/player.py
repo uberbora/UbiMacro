@@ -93,7 +93,9 @@ class Player:
                 self._held_keys.pop(key_id(k), None)
         elif typ == "click":
             down = ev.get("action") == "down"
-            if move_to_clicks and "x" in ev and "y" in ev:
+            if hasattr(self.backend, "move_to_event"):
+                self.backend.move_to_event(ev)  # background: always aim inside the window
+            elif move_to_clicks and "x" in ev and "y" in ev:
                 self.backend.mouse_move(ev["x"], ev["y"])
             btn = ev.get("button", "left")
             self.backend.mouse_button(btn, down)
@@ -102,7 +104,10 @@ class Player:
             else:
                 self._held_buttons.discard(btn)
         elif typ == "move":
-            self.backend.mouse_move(ev["x"], ev["y"])
+            if hasattr(self.backend, "move_to_event"):
+                self.backend.move_to_event(ev)
+            else:
+                self.backend.mouse_move(ev["x"], ev["y"])
         elif typ == "scroll":
             self.backend.scroll(ev.get("dx", 0), ev.get("dy", 0))
 
@@ -127,6 +132,10 @@ class Player:
             while not self._stop.is_set() and (loops == 0 or done < loops):
                 if self.on_progress:
                     self.on_progress(done + 1, loops)
+                if hasattr(self.backend, "alive") and not self.backend.alive():
+                    raise RuntimeError("the target window was closed")
+                if hasattr(self.backend, "prepare"):
+                    self.backend.prepare()
                 cursor = self._clock()
                 prev_t = 0.0
                 for ev in events:

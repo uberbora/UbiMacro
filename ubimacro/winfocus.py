@@ -10,14 +10,15 @@ import sys
 GAME_TITLES = ("roblox",)
 
 
-def find_window(titles=GAME_TITLES):
+def list_windows():
+    """Visible top-level windows with a title: [(hwnd, title), ...]."""
     if sys.platform != "win32":
-        return None
+        return []
     import ctypes
     from ctypes import wintypes
 
     user32 = ctypes.windll.user32
-    found = []
+    out = []
     proc_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
     def callback(hwnd, _lparam):
@@ -26,13 +27,51 @@ def find_window(titles=GAME_TITLES):
             if n:
                 buf = ctypes.create_unicode_buffer(n + 1)
                 user32.GetWindowTextW(hwnd, buf, n + 1)
-                if buf.value.strip().lower() in titles:
-                    found.append(hwnd)
-                    return False
+                if buf.value.strip():
+                    out.append((hwnd, buf.value.strip()))
         return True
 
     user32.EnumWindows(proc_type(callback), 0)
-    return found[0] if found else None
+    return out
+
+
+def find_window(titles=GAME_TITLES):
+    """Find a window whose title matches one of ``titles`` (exact first, then contains)."""
+    wins = list_windows()
+    wanted = [t.lower() for t in titles]
+    for hwnd, title in wins:
+        if title.lower() in wanted:
+            return hwnd
+    for hwnd, title in wins:
+        if any(w and w in title.lower() for w in wanted):
+            return hwnd
+    return None
+
+
+def relative_to_foreground(x, y):
+    """Where (x, y) falls inside the foreground window, as fractions (0..1) of
+    its client area, or None. Recorded with clicks so background playback can
+    aim at the same spot even after the window moves."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd:
+            return None
+        pt = wintypes.POINT(int(x), int(y))
+        user32.ScreenToClient(hwnd, ctypes.byref(pt))
+        r = wintypes.RECT()
+        user32.GetClientRect(hwnd, ctypes.byref(r))
+        w, h = r.right - r.left, r.bottom - r.top
+        if w <= 0 or h <= 0 or not (0 <= pt.x < w and 0 <= pt.y < h):
+            return None
+        return round(pt.x / w, 4), round(pt.y / h, 4)
+    except Exception:
+        return None
 
 
 def focus_game(titles=GAME_TITLES):
