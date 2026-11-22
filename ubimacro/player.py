@@ -11,19 +11,25 @@ class Player:
     def __init__(self, backend, on_progress=None, on_finish=None, clock=time.perf_counter):
         self.backend = backend
         self.on_progress = on_progress  # called with (loop_number, total_loops)
-        self.on_finish = on_finish      # called with (loops_completed, error_or_None)
+        self.on_finish = on_finish      # called with (loops_completed, error_or_None, reason)
         self._clock = clock
         self._stop = threading.Event()
         self._thread = None
         self._held_keys = {}
         self._held_buttons = set()
+        self._deadline = None
+        self._timed_out = False
 
     @property
     def running(self):
         return self._thread is not None and self._thread.is_alive()
 
-    def start(self, events, loops=0, speed=1.0, loop_delay=0.0, humanize=0.0, move_to_clicks=True):
+    def start(self, events, loops=0, speed=1.0, loop_delay=0.0, humanize=0.0, move_to_clicks=True,
+              stop_after=0.0):
         """Start playback. ``loops=0`` means repeat forever.
+
+        ``stop_after`` (seconds, 0 = never) stops playback after that long,
+        whatever loop it is on.
 
         ``humanize`` is a fraction (0.1 = +/-10%) of random variation applied
         to the gaps between events and to the delay between loops.
@@ -31,6 +37,8 @@ class Player:
         if self.running or not events:
             return False
         self._stop.clear()
+        self._timed_out = False
+        self._deadline = self._clock() + float(stop_after) if stop_after and stop_after > 0 else None
         self._thread = threading.Thread(
             target=self._run,
             args=(list(events), int(loops), max(0.05, float(speed)), max(0.0, float(loop_delay)),
@@ -48,6 +56,14 @@ class Player:
     # ---- internals -------------------------------------------------------
     def _wait_until(self, target):
         """Sleep until ``target`` (clock time). Returns False if stopped."""
+        if self._deadline is not None and target >= self._deadline:
+            if self._wait_plain(self._deadline):
+                self._timed_out = True
+                self._stop.set()
+            return False
+        return self._wait_plain(target)
+
+    def _wait_plain(self, target):
         while True:
             remaining = target - self._clock()
             if remaining <= 0:
@@ -132,4 +148,6 @@ class Player:
         finally:
             self.release_all()
             if self.on_finish:
-                self.on_finish(done, error)
+                reason = "error" if error else "time_limit" if self._timed_out else (
+                    "stopped" if self._stop.is_set() else "done")
+                self.on_finish(done, error, reason)

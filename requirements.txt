@@ -1,1 +1,2 @@
 pynput>=1.8
+customtkinter>=5.2
