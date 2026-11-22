@@ -1,2 +1,4 @@
 pynput>=1.8
 customtkinter>=5.2
+pystray>=0.19
+Pillow>=10

@@ -48,30 +48,28 @@ def find_window(titles=GAME_TITLES):
     return None
 
 
-def relative_to_foreground(x, y):
-    """Where (x, y) falls inside the foreground window, as fractions (0..1) of
-    its client area, or None. Recorded with clicks so background playback can
-    aim at the same spot even after the window moves."""
+def foreground_hwnd():
     if sys.platform != "win32":
         return None
-    try:
-        import ctypes
-        from ctypes import wintypes
+    import ctypes
 
-        user32 = ctypes.windll.user32
-        hwnd = user32.GetForegroundWindow()
-        if not hwnd:
-            return None
-        pt = wintypes.POINT(int(x), int(y))
-        user32.ScreenToClient(hwnd, ctypes.byref(pt))
-        r = wintypes.RECT()
-        user32.GetClientRect(hwnd, ctypes.byref(r))
-        w, h = r.right - r.left, r.bottom - r.top
-        if w <= 0 or h <= 0 or not (0 <= pt.x < w and 0 <= pt.y < h):
-            return None
-        return round(pt.x / w, 4), round(pt.y / h, 4)
-    except Exception:
-        return None
+    return ctypes.windll.user32.GetForegroundWindow() or None
+
+
+def window_exists(hwnd):
+    if sys.platform != "win32" or not hwnd:
+        return False
+    import ctypes
+
+    return bool(ctypes.windll.user32.IsWindow(hwnd))
+
+
+def game_in_front(titles=GAME_TITLES):
+    """True if the foreground window is the game (always True off Windows)."""
+    if sys.platform != "win32":
+        return True
+    fg = foreground_hwnd()
+    return bool(fg) and fg == find_window(titles)
 
 
 def focus_game(titles=GAME_TITLES):

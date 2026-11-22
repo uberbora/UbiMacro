@@ -12,9 +12,8 @@ from .keys import key_id
 
 
 class Recorder:
-    def __init__(self, record_moves=False, move_interval=1 / 60, clock=time.perf_counter, relative_fn=None):
+    def __init__(self, record_moves=False, move_interval=1 / 60, clock=time.perf_counter):
         self.record_moves = record_moves
-        self.relative_fn = relative_fn  # (x, y) -> (rx, ry) inside the game window, or None
         self.move_interval = move_interval
         self._clock = clock
         self._lock = threading.Lock()
@@ -96,7 +95,6 @@ class Recorder:
         if injected:
             return
         name = getattr(button, "name", str(button))
-        rel = self.relative_fn(x, y) if self.relative_fn else None
         with self._lock:
             if not self.active:
                 return
@@ -112,8 +110,6 @@ class Recorder:
                 "x": int(x),
                 "y": int(y),
             }
-            if rel:
-                ev["rx"], ev["ry"] = rel
             self._events.append(ev)
 
     def on_move(self, x, y, injected=False):

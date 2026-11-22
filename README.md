@@ -2,137 +2,125 @@
 
 Somewhat of an autoclicker with more features packed into it.
 
-Record your keyboard (W/A/S/D, jump, anything) and mouse clicks once, then
-replay them on a hotkey, looped as long as you want. Made mainly to keep
-Roblox from kicking you for being idle while you AFK grind.
+Record your keyboard and mouse once and replay it on a hotkey, or let the
+auto-clicker click for you. Made mainly to keep Roblox from kicking you for
+being idle while you AFK grind.
 
 English and Türkçe · dark and light theme · built on the Ubi design system.
 
 ## Getting it
 
-**Easiest:** go to the repo's **Releases** page and download `UbiMacro.exe`. No install
-needed, just run it.
-
-Windows SmartScreen may warn because the exe isn't signed. Click *More info → Run anyway*.
+**Easiest:** open the repo's **Releases** page and download `UbiMacro.exe`. No install
+needed, just run it. Windows SmartScreen may warn because the exe isn't signed: click
+*More info → Run anyway*.
 
 **From source:** install [Python 3.10+](https://www.python.org/downloads/) (tick
-"Add Python to PATH"), then double-click `run.bat`. Or:
+"Add Python to PATH"), then double-click `run.bat`, or:
 
 ```
 pip install -r requirements.txt
 python run.py
 ```
 
-## How to use
+## Quick start
 
-1. Open Roblox and UbiMacro.
-2. Click into the game and press **F8** to start recording.
-3. Do your moves: walk, jump, click, etc.
-4. Press **F8** again to stop.
-5. Press **F6** to play it. It loops forever by default. Press **F6** again to stop.
+**Macro:** click into Roblox, press **F8**, do your moves, press **F8** again. Press **F6**
+to play it (it loops forever by default) and **F6** again to stop.
 
-Pressing **Play** inside UbiMacro switches to the Roblox window for you first.
+**Auto-clicker:** on Home switch to **Auto-clicker**, set the speed, then press **F7** in
+the game to start and stop clicking.
 
-Don't want to record anything? Click **Anti-AFK preset**. It loads a tiny
-jump + step-forward + step-back macro that repeats every 60 seconds. That's plenty
-to beat Roblox's 20-minute idle kick.
+**Stop everything:** **End**, whatever is running.
 
-## The three tabs
+## Hotkeys
 
-**Home**: status, Record / Play / Stop, and the playback settings.
-
-| Setting | What it does |
+| Key | What it does |
 |---|---|
-| Repeat | How many times to play. `0` = forever. |
-| Wait between | Seconds to wait between loops. |
-| Speed | `1` = normal, `2` = twice as fast. |
-| Humanize | Randomizes the timing by ± that %, so it looks less robotic. |
-| Stop after | Stop playing after this many minutes. `0` = never. |
+| F8 | Record / stop recording (a new recording goes into the Library) |
+| F6 | Play / stop the current macro |
+| F7 | Auto-clicker on / off (or hold it, if you choose Hold) |
+| F9 | Mini mode on / off |
+| End | Stop everything |
+| your own | Each macro in the Library can have its own key that plays it straight away |
 
-**Events**: every recorded key and click with its time and the pause before it.
-Pick one to edit it:
+All of them work while the game is focused, and all can be changed in Settings.
 
-- **Time**: when the event happens. With *Move the events after it too* on, everything after moves along so holds stay the same length.
-- **Pause before**: the gap since the previous event. Set it to `0` to remove a pause.
-- **Remove start delay**: drops the dead time before the first event (the 0.121 s from clicking late). This also happens automatically after every recording; you can turn that off in Settings.
-- **Shorten pauses longer than X s**: squeezes every long wait down to X seconds in one go.
-- **Delete** and **Undo** (Ctrl+Z). Undo also brings back a cleared macro.
+## The tabs
 
-**Settings**: language (English / Türkçe), theme (System / Light / Dark, also
-the ◐ button at the top), hotkeys, recording and playback options, keep on top,
-and a button that opens the folder with your macros.
+**Home:** the status card (with a live timer while running), Macro / Auto-clicker,
+the current macro, Loops / Clicks / Today, and the playback settings
+(repeat, wait between loops, speed, humanize, stop after).
 
-## Background playback (experimental)
+**Library:** every macro you've recorded. Search, favourites, a hotkey per macro,
+and right-click (or ⋯) to rename, duplicate, change the key, export or delete.
+**Import…** brings in a macro file someone shared. The built-in **Anti-AFK** preset
+(jump, step forward, step back every 60 s) is here too.
 
-Want Roblox to keep going on another screen, or behind your other windows, while
-you work? Settings → **Background**:
+**Events:** the macro as a timeline, one lane per key or mouse button.
 
-1. Open Roblox and pick it under **Send input to** (press Refresh if it's not listed).
-2. Press **Run background test**, then click into another window within 5 seconds.
-3. Watch Roblox: it should jump, walk forward and click 3 times.
-4. Try again with **Make the window think it's active** switched the other way.
+- Drag a bar to move it, drag its ends to hold longer or shorter. Ctrl+scroll zooms.
+- Pick one and type its **Starts at**, **Held for** or **Pause before** (set a pause to 0 to remove it).
+- **Remove start delay** drops the dead time before the first event (also done automatically after recording).
+- **Shorten long pauses** squeezes every wait longer than the limit in Settings.
+- **Record from here** records a new take and inserts it after the selected event.
+- **Test from here** plays the macro once from the selected event.
+- **List** view shows every event as a row. **Undo** with Ctrl+Z.
 
-If it works, turn on **Play in the background** and F6 plays your macro in
-Roblox while your keyboard and mouse stay yours. Not every game accepts input
-this way (many only listen while they are the active window), which is why it's
-marked experimental.
+**Settings:**
 
-## Features
+- **Safety:** pause when you touch the mouse or keyboard and pick up again after a few quiet seconds; stop and alert you if Roblox closes; only play while Roblox is in front.
+- **Recording:** record mouse movement, remove the start delay, countdown, long-pause limit.
+- **Playback:** switch to Roblox when you press Play in the window; move the mouse to recorded click spots.
+- **Notifications:** start/stop sounds; a **Discord webhook** so your phone gets a message if Roblox closes or a run finishes (Discord: Server settings › Integrations › Webhooks › New webhook › Copy link).
+- **Window:** keep on top, start in mini mode, close to the tray.
+- **Updates:** check for a newer release on start.
+- **Language:** English / Türkçe. **Theme:** System / Light / Dark.
 
-| | |
-|---|---|
-| Global hotkeys | Record/stop and play/stop work while the game is focused. Change them in Settings. |
-| Game-friendly input | On Windows, playback sends hardware **scancodes** through `SendInput`, which Roblox actually picks up (lots of macro tools send keys that games ignore). |
-| Switches to Roblox | Pressing Play in the window brings Roblox to the front first. If Roblox isn't open, you get a countdown instead. |
-| Event editor | Change any event's time or the pause before it, remove the start delay, shorten long pauses, delete, undo. |
-| Looping | Repeat N times or forever, with a wait between loops and an optional time limit. |
-| Speed and humanize | Play faster or slower, and add random timing variation. |
-| Mouse | Records clicks (with position) and scroll. Mouse movement recording is optional. |
-| Save / Load | Save macros as `.json` files (playback settings included). Your last recording is auto-saved and comes back next launch. |
-| Safe stop | Stopping always releases any held keys/buttons, so W never gets stuck down. |
-| Two languages | English and Turkish; it picks your Windows language the first time. |
-| Dark and light | Dark by default, as in every Ubi desktop app. |
-| Background mode | Experimental: send input to one window while you use the PC. |
+**Mini mode:** a small bar that stays on top of the game with the status, the
+timer and a start/stop button. Drag it anywhere, and press ⤢ or F9 to get the full window back.
 
-Settings and macros are stored in `%APPDATA%\UbiMacro`.
+## Good to know
 
-## Tips
-
-- Roblox needs to be the **focused window** for the playback to reach it.
-- If your camera spins weirdly during playback, turn off **Move the mouse to
-  where you clicked** in Settings (useful in first-person / shift-lock).
-- For AFK, short macros with a long wait between loops work best and keep you
-  in place: e.g. walk forward, then walk back the same amount.
-- Holding a key works normally. The recorder ignores Windows' auto-repeat, so
-  holding W for 3 seconds plays back as one 3-second hold.
+- Roblox has to be the **window in front** for input to reach it: Windows sends keyboard
+  and mouse input to the active window only, and Roblox ignores input while it's in the
+  background. UbiMacro can't get around that, so the Safety options are there to make
+  sure it never types into your other windows by mistake.
+- Pausing when you touch the mouse/keyboard and "only play when Roblox is in front" need
+  Windows (they rely on Windows telling real input apart from UbiMacro's own).
+- The update check asks GitHub for the newest release. It only works while this
+  repository is public; for a private repo it quietly finds nothing.
+- Your macros and settings live in `%APPDATA%\UbiMacro` (Settings › Storage › Open folder).
+  Macros saved by older versions show up in the Library automatically.
 - If something isn't registering in-game, try running UbiMacro as administrator.
+
+Roblox's terms don't love automation. Use it at your own risk.
 
 ## Design
 
-UbiMacro uses the **Ubi** design system shared by the Ubi apps: Bricolage
-Grotesque for titles and numbers, Figtree for text, DM Mono for small labels,
-flat cards with hairline borders and one accent colour. UbiMacro's accent is
-magenta. Its `macro-*` colours are in `ubimacro/theme.py`; every text colour pair
-passes 4.5:1 contrast in both themes. The fonts ship inside the app under the
-SIL Open Font License (see `ubimacro/assets/fonts`).
-
-## Heads up
-
-Roblox's terms don't love automation. Use it at your own risk.
+UbiMacro uses the **Ubi** design system shared by the Ubi apps: Bricolage Grotesque
+for titles and numbers, Figtree for text, DM Mono for small labels, flat cards with
+hairline borders and one accent colour (magenta for UbiMacro). Every text colour pair
+passes 4.5:1 contrast in both themes. The fonts ship inside the app under the SIL
+Open Font License (see `ubimacro/assets/fonts`).
 
 ## Project layout
 
 ```
-run.py                 entry point
-ubimacro/app.py        the window (CustomTkinter): tabs, hotkeys, editor, settings
-ubimacro/theme.py      Ubi colours, fonts and radius scale
-ubimacro/i18n.py       English and Turkish text
-ubimacro/recorder.py   recording
-ubimacro/player.py     playback thread (loops, speed, humanize, time limit)
-ubimacro/backends.py   Windows SendInput scancode backend (+ pynput fallback)
-ubimacro/macro.py      save/load, editing helpers, Anti-AFK preset
-ubimacro/winfocus.py   finding/switching windows, system language
-ubimacro/background.py window-message backend for background playback
-tests_windows/         Windows-only check that window messages arrive
-tests/                 python -m unittest discover -s tests
+run.py                    entry point
+ubimacro/app.py           controller: state, hotkeys, record/play/click, pausing, alerts, stats
+ubimacro/ui/              the window: shell, home, library, events (timeline), settings, mini, tray
+ubimacro/ui/kit.py        Ubi widgets (cards, chips, switches, buttons)
+ubimacro/ui/icons.py      line icons drawn with Pillow
+ubimacro/player.py        macro playback (loops, speed, humanize, time limit, pause)
+ubimacro/clicker.py       the auto-clicker
+ubimacro/timing.py        shared precise waiting with stop / pause / time limit
+ubimacro/recorder.py      recording
+ubimacro/library.py       the macro library (one .json per macro)
+ubimacro/macro.py         macro files, timeline model and editing helpers
+ubimacro/backends.py      Windows SendInput scancode backend (+ pynput fallback)
+ubimacro/notify.py        sounds, Discord webhook, update check
+ubimacro/winfocus.py      finding / focusing the Roblox window, system language
+ubimacro/theme.py         Ubi colours and fonts
+ubimacro/i18n.py          English and Turkish text
+tests/                    python -m unittest discover -s tests
 ```

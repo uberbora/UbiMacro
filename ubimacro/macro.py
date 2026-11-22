@@ -9,7 +9,7 @@ Event shapes (``t`` = seconds since recording started):
 
 import json
 
-from .keys import display_name, make_key
+from .keys import display_name, key_id, make_key
 
 FORMAT_VERSION = 1
 
@@ -32,21 +32,40 @@ def describe(event):
     return str(event)
 
 
-def save(path, events, settings=None):
-    data = {"app": "UbiMacro", "version": FORMAT_VERSION, "events": events}
+def save(path, events, settings=None, meta=None):
+    """Write a macro file. ``meta`` holds library info (name, hotkey, favourite...)."""
+    data = {"app": "UbiMacro", "version": FORMAT_VERSION, "events": [_clean(e) for e in events]}
     if settings:
         data["settings"] = settings
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=1)
+    if meta:
+        data["meta"] = meta
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=1, ensure_ascii=False)
+    import os
+
+    os.replace(tmp, path)  # never leave a half-written macro behind
+
+
+def _clean(e):
+    return {k: v for k, v in e.items() if not k.startswith("_")}
+
+
+def load_full(path):
+    """Return (events, settings, meta) from a saved macro file."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if isinstance(data, list):  # bare list of events
+        return normalize(data), {}, {}
+    if not isinstance(data, dict):
+        raise ValueError("not a macro file")
+    return (normalize(data.get("events", [])), data.get("settings", {}) or {}, data.get("meta", {}) or {})
 
 
 def load(path):
     """Return (events, settings) from a saved macro file."""
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    if isinstance(data, list):  # bare list of events
-        return normalize(data), {}
-    return normalize(data.get("events", [])), data.get("settings", {}) or {}
+    events, settings, _meta = load_full(path)
+    return events, settings
 
 
 def normalize(events):
@@ -147,6 +166,122 @@ def cap_gaps(events, max_gap):
             removed += gap - max_gap
         prev_orig = orig
         e["t"] = _r(orig - removed)
+    return out
+
+
+def lane_of(e):
+    """Timeline lane for an event: one per key, one per mouse button, or None."""
+    if e.get("type") == "key":
+        return ("key",) + tuple(key_id(e.get("key") or {}))
+    if e.get("type") == "click":
+        return ("btn", e.get("button", "left"))
+    return None
+
+
+def lane_label(lane, events=None):
+    if lane is None:
+        return "other"
+    if lane[0] == "btn":
+        return lane[1]
+    for e in events or []:
+        if e.get("type") == "key" and lane_of(e) == lane:
+            return display_name(e.get("key"))
+    return str(lane[-1])
+
+
+def pairs(events):
+    """Match every press with its release.
+
+    Returns (bars, singles, lanes): bars are (lane, down_index, up_index),
+    singles are indexes of events with no partner (moves, scrolls, an
+    unreleased key), lanes are in order of first use.
+    """
+    open_, bars, singles, lanes = {}, [], [], []
+    for i, e in enumerate(events):
+        lane = lane_of(e)
+        if lane is None:
+            singles.append(i)
+            continue
+        if lane not in lanes:
+            lanes.append(lane)
+        if e.get("action") == "down":
+            if lane in open_:
+                singles.append(open_[lane])
+            open_[lane] = i
+        elif lane in open_:
+            bars.append((lane, open_.pop(lane), i))
+        else:
+            singles.append(i)
+    singles.extend(open_.values())
+    return bars, sorted(singles), lanes
+
+
+def partner(events, index):
+    """The index paired with ``index`` (press <-> release), or None."""
+    bars, _s, _l = pairs(events)
+    for _lane, d, u in bars:
+        if index == d:
+            return u
+        if index == u:
+            return d
+    return None
+
+
+def move_bar(events, down_index, up_index, delta):
+    """Move a press and its release together by ``delta`` seconds."""
+    idx = [down_index] if up_index is None else [down_index, up_index]
+    if delta < 0:
+        delta = max(delta, -events[down_index]["t"])
+    return shift(events, idx, delta)
+
+
+def resize_bar(events, down_index, up_index, delta, edge="end"):
+    """Hold longer/shorter: move the release (edge="end") or the press
+    (edge="start"), never past the other one."""
+    d_t, u_t = events[down_index]["t"], events[up_index]["t"]
+    if edge == "end":
+        delta = max(delta, (d_t + 0.01) - u_t)
+        return shift(events, [up_index], delta)
+    delta = min(delta, (u_t - 0.01) - d_t)
+    delta = max(delta, -d_t)
+    return shift(events, [down_index], delta)
+
+
+def insert_take(events, at, take, gap=0.05):
+    """Put a newly recorded ``take`` in at ``at`` seconds; everything after
+    moves later by the take's length."""
+    take = trim_start(take)
+    length = duration(take) + gap
+    out = []
+    for e in events:
+        c = dict(e)
+        if c["t"] > at:
+            c["t"] = _r(c["t"] + length)
+        out.append(c)
+    for e in take:
+        c = dict(e)
+        c["t"] = _r(at + gap + c["t"])
+        out.append(c)
+    out.sort(key=lambda e: e["t"])
+    return out
+
+
+def slice_from(events, at):
+    """The macro from ``at`` seconds on, starting at 0. Keys already held at
+    that moment are pressed at the start so the rest plays the same."""
+    bars, _s, _l = pairs(events)
+    out = []
+    for _lane, d, u in bars:
+        if events[d]["t"] < at <= events[u]["t"]:
+            c = dict(events[d])
+            c["t"] = 0.0
+            out.append(c)
+    for e in events:
+        if e["t"] >= at:
+            c = dict(e)
+            c["t"] = _r(e["t"] - at)
+            out.append(c)
+    out.sort(key=lambda e: e["t"])
     return out
 
 
