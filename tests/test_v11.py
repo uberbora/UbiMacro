@@ -81,9 +81,19 @@ class I18nTest(unittest.TestCase):
             self.assertEqual(set(re.findall(r"{(\w+)}", en[k])), set(re.findall(r"{(\w+)}", trk[k])), k)
 
     def test_every_key_used_in_app_exists(self):
-        src = open(os.path.join(os.path.dirname(__file__), "..", "ubimacro", "app.py"), encoding="utf-8").read()
-        used = set(re.findall(r"""tr\(["']([a-z_]+)["']""", src))
-        missing = {k for k in used if k not in STRINGS["en"] and not k.endswith("_")}
+        import glob
+
+        root = os.path.join(os.path.dirname(__file__), "..", "ubimacro")
+        used = set()
+        for path in [os.path.join(root, "app.py")] + glob.glob(os.path.join(root, "ui", "*.py")):
+            with open(path, encoding="utf-8") as f:
+                used |= set(re.findall(r"""tr\(["']([a-z_0-9]+)["']""", f.read()))
+        dynamic = {"tab_home", "tab_library", "tab_events", "tab_settings", "ev_key_down", "ev_key_up",
+                   "ev_click_down", "ev_click_up", "btn_left", "btn_right", "btn_middle", "btn_x1", "btn_x2",
+                   "lane_left", "lane_right", "lane_middle", "lane_x1", "lane_x2", "toast_time_limit_macro",
+                   "toast_time_limit_clicker", "hk_record", "hk_play", "hk_clicker", "hk_mini", "hk_stopall",
+                   "sub_ready_click", "sub_ready_hold"}
+        missing = {k for k in used | dynamic if k not in STRINGS["en"] and not k.endswith("_")}
         self.assertEqual(missing, set())
 
     def test_formats_every_string(self):

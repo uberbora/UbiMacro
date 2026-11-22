@@ -102,7 +102,7 @@ def display_name(d):
     if not d:
         return "None"
     n = d.get("name") or "?"
-    if len(n) <= 3:
+    if len(n) == 1 or (n[0] == "f" and n[1:].isdigit()):
         return n.upper()
     return n.replace("_", " ").title()
 

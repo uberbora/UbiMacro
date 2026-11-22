@@ -36,8 +36,12 @@ jobs:
           assert ctypes.sizeof(b.INPUT) == 40, ctypes.sizeof(b.INPUT);
           assert b._user32.MapVirtualKeyW(0x57, 0) == 0x11, 'W scancode'"
 
-      - name: Check background messages reach a window
-        run: python -m unittest discover -s tests_windows -v
+      - name: Check the Windows-only helpers run
+        run: >
+          python -c "from ubimacro import winfocus, notify; from ubimacro.ui.tray import pystray, tray_image;
+          print('game in front:', winfocus.game_in_front()); assert winfocus.window_exists(0) is False;
+          print('foreground:', winfocus.foreground_hwnd()); notify.play_sound('start');
+          assert pystray is not None, 'pystray missing'; tray_image(); print('ok')"
 
       - name: Check the Ubi fonts load on Windows
         run: >
@@ -51,6 +55,7 @@ jobs:
           pyinstaller --noconfirm --onefile --windowed --name UbiMacro
           --hidden-import pynput.keyboard._win32
           --hidden-import pynput.mouse._win32
+          --hidden-import pystray._win32
           --collect-data customtkinter
           --add-data "ubimacro/assets;ubimacro/assets"
           run.py

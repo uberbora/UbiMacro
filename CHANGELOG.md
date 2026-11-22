@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.0
+
+A redesign on the Ubi design system, and a lot of new features.
+
+- **Auto-clicker** mode: set clicks a second, left or right button, F7 as on/off or hold, click where the mouse is or at a fixed spot, with slight speed variation.
+- **Library tab**: every recording is kept as its own macro, with search, favourites, rename, duplicate, import/export, delete, and **a hotkey per macro** that plays it straight away.
+- **Timeline editor** on the Events tab: drag bars to move them or change how long a key is held, edit start / held / pause times, record a new take from any point, test from any point (the list view is still there).
+- **Stop everything** key (End).
+- **Safety:** pause when you touch the mouse or keyboard (picks up again after a few quiet seconds), stop and alert you if Roblox closes, only play while Roblox is in front.
+- **Notifications:** start/stop sounds and an optional Discord webhook message when Roblox closes or a run finishes.
+- **Mini mode:** a small always-on-top bar with the timer and a start/stop button (F9).
+- **Stats:** loops, clicks and time today.
+- Close to the tray, start in mini mode, update check, playback settings shown as chips on Home.
+- Removed the experimental background playback from 1.2 (Roblox doesn't accept input that way).
+- Your 1.2 macro moves into the Library automatically.
+
 ## 1.2.0
 
 - **Play in the background (experimental):** sends keys and clicks straight to one window (e.g. Roblox) with window messages, so it can sit on another screen or behind your work while you use your PC. Settings → Background.
