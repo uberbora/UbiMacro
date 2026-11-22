@@ -69,18 +69,30 @@ def assets_dir():
 
 def load_fonts():
     """Register the bundled fonts for this process. Call before creating the window."""
+    folder = os.path.join(assets_dir(), "fonts")
+    paths = [os.path.join(folder, n) for n in FONT_FILES if os.path.exists(os.path.join(folder, n))]
+    if sys.platform == "win32":
+        # FR_PRIVATE: only this process sees them, nothing is installed. Unlike
+        # CustomTkinter's loader we leave them enumerable, so we can check
+        # they really loaded.
+        import ctypes
+
+        add_font = ctypes.windll.gdi32.AddFontResourceExW
+        for path in paths:
+            try:
+                add_font(ctypes.c_wchar_p(path), 0x10, 0)
+            except Exception:
+                pass
+        return
     try:
         from customtkinter import FontManager
     except ImportError:
         return
-    folder = os.path.join(assets_dir(), "fonts")
-    for name in FONT_FILES:
-        path = os.path.join(folder, name)
-        if os.path.exists(path):
-            try:
-                FontManager.load_font(path)
-            except Exception:
-                pass
+    for path in paths:
+        try:
+            FontManager.load_font(path)
+        except Exception:
+            pass
 
 
 def resolve_families(root):
