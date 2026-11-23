@@ -20,10 +20,12 @@ from . import theme as th
 from .clicker import Clicker
 from .i18n import tr
 from .keys import display_name, key_to_dict, keys_match, make_key
+from .history import History
 from .library import Library
 from .player import Player
 from .recorder import Recorder
 from .theme import C
+from .robloxlog import KNOWN as DC_KNOWN, LogWatcher
 from .winfocus import find_window, focus_game, game_in_front, system_language, window_exists
 
 IS_WINDOWS = sys.platform == "win32"
@@ -46,7 +48,8 @@ DEFAULTS = {
     # safety
     "pause_on_input": True, "resume_after": 5, "notify_closed": True, "only_front": False,
     # notifications
-    "sounds": True, "webhook": "", "notify_finished": False,
+    "sounds": True, "webhook": "", "discord_user": "", "alerts": None,
+    "status_every": 30, "paused_after": 10,
     # window
     "topmost": True, "start_mini": False, "close_to_tray": False, "check_updates": True,
     "today": {"day": "", "seconds": 0.0},
@@ -72,7 +75,7 @@ def fmt_length(seconds):
         return tr("secs", s=f"{seconds:.1f}")
     m, s = divmod(int(seconds), 60)
     if m < 60:
-        return tr("min_sec", m=m, s=s)
+        return tr("min_sec", m=m, s=s) if s else tr("mins", m=m)
     h, m = divmod(m, 60)
     return tr("hour_min", h=h, m=m) if m else tr("hours", h=h)
 
@@ -105,6 +108,7 @@ class App:
         tr.set_lang(self.settings["lang"])
         ctk.set_appearance_mode(self.settings["theme"])
         self.library = Library(os.path.join(self.cfg_dir, "macros"))
+        self.history = History(os.path.join(self.cfg_dir, "history.json"))
         self._migrate_last_macro()
 
         self.events, self.active, self.undo_stack = [], None, []
@@ -120,7 +124,12 @@ class App:
         self._countdown_then = None
         self._countdown_left = 0
         self._take_at = None         # "record from here"
-        self._run = {"started": 0.0, "loops": 0, "total": 0, "clicks": 0, "name": ""}
+        self._run = {"started": 0.0, "loops": 0, "total": 0, "clicks": 0, "name": "", "kind": "macro",
+                     "ended": True}
+        self._log_watch = None
+        self._last_status = 0.0
+        self._paused_since = None
+        self._paused_alerted = False
         self._last_input = 0.0
         self._mouse_pos = None
         self._watch_hwnd = None
@@ -179,6 +188,15 @@ class App:
             s["theme"] = "dark"
         if s.get("mode") not in ("macro", "clicker"):
             s["mode"] = "macro"
+        legacy = s.pop("notify_finished", None)  # 1.3 had one switch for "finished"
+        alerts = notify.default_alerts()
+        if isinstance(s.get("alerts"), dict):
+            for k, v in s["alerts"].items():
+                if k in alerts and isinstance(v, dict):
+                    alerts[k].update({kk: v[kk] for kk in ("on", "ping", "text") if kk in v})
+        elif legacy is not None:
+            alerts["finished"]["on"] = bool(legacy)
+        s["alerts"] = alerts
         return s
 
     def save_settings(self):
@@ -513,6 +531,7 @@ class App:
             self.stop_playback()
             return
         if self.state == "playing":
+            self._end_run("stopped")
             self.player.stop(wait=True)
             self._set_state("idle")
         if self.state != "idle":
@@ -548,10 +567,9 @@ class App:
             self._update_pause(now)
             if not self.paused:
                 self._add_today(now - self._last_tick)
-            if self._watch_hwnd and now - self._last_watch > 1.0:
+            if now - self._last_watch > 1.0:
                 self._last_watch = now
-                if not window_exists(self._watch_hwnd):
-                    self._game_closed()
+                self._watch_game(now)
         self._last_tick = now
         if now - self._last_settings_save > 60:
             self._last_settings_save = now
@@ -603,15 +621,19 @@ class App:
             self._run["loops"], self._run["total"] = msg[1] - 1, msg[2]
         elif kind == "finished":
             done, err, reason = msg[1], msg[2], msg[3]
-            self._run["loops"] = done
+            if not self._run["ended"] and self._run["kind"] == "macro":
+                self._run["loops"] = done
+                self._end_run(reason)
             if self.state == "playing":
-                self._run_ended("macro", reason, done)
+                self._set_state("idle")
             if err:
                 messagebox.showerror("UbiMacro", tr("err_playback", err=err))
         elif kind == "clicker_done":
             n, err, reason = msg[1], msg[2], msg[3]
+            if not self._run["ended"] and self._run["kind"] == "clicker":
+                self._end_run(reason)
             if self.state == "clicking":
-                self._run_ended("clicker", reason, n)
+                self._set_state("idle")
             if err:
                 messagebox.showerror("UbiMacro", tr("err_playback", err=err))
         elif kind == "update":
@@ -622,6 +644,8 @@ class App:
                 self.show_toast(tr("toast_update", tag=tag) if tag else tr("toast_up_to_date"))
         elif kind == "webhook":
             self.show_toast(tr("toast_webhook_ok") if msg[1] else tr("toast_webhook_fail"))
+        elif kind == "webhook_quiet":
+            pass
         elif kind == "tray":
             self._tray_action(msg[1])
 
@@ -636,56 +660,165 @@ class App:
         self.ui.refresh_state()
         self.tray.refresh()
 
-    def _begin_run(self, name):
-        self._run = {"started": time.time(), "loops": 0, "total": 0, "clicks": 0, "name": name}
+    def _begin_run(self, name, kind):
+        self._run = {"started": time.time(), "loops": 0, "total": 0, "clicks": 0, "name": name, "kind": kind,
+                     "ended": False}
         self._last_input = 0.0
         self._mouse_pos = None
         self._last_tick = time.time()
         self._front_ok = True
-        self._watch_hwnd = find_window() if (self.settings["notify_closed"] and IS_WINDOWS) else None
+        self._last_status = time.time()
+        self._paused_since, self._paused_alerted = None, False
+        watch = self.settings["notify_closed"] and IS_WINDOWS
+        self._watch_hwnd = find_window() if watch else None
+        self._log_watch = None
+        if watch:
+            try:
+                lw = LogWatcher()
+                if lw.start():
+                    self._log_watch = lw
+            except Exception:
+                self._log_watch = None
         if self.settings["sounds"]:
             notify.play_sound("start", self.root.bell)
+        self.alert("started")
 
     def run_elapsed(self):
-        return time.time() - self._run["started"] if self._run["started"] else 0.0
+        if not self._run["started"]:
+            return 0.0
+        end = self._run.get("ended_at") or time.time()
+        return end - self._run["started"]
 
     def run_info(self):
         return dict(self._run)
 
-    def _run_ended(self, kind, reason, count):
-        elapsed = fmt_length(self.run_elapsed())
-        self._set_state("idle")
-        if self.settings["sounds"]:
+    def _end_run(self, reason, detail=None):
+        """Every run ends here exactly once: history, sounds, toasts, alerts.
+        reason: done / time_limit / stopped / closed / disconnected / error."""
+        if self._run.get("ended", True):
+            return
+        self._run["ended"] = True
+        self._run["ended_at"] = time.time()
+        info = dict(self._run)
+        elapsed = self.run_elapsed()
+        try:
+            self.history.add(info["name"], info["kind"], info["started"], elapsed, info["loops"], info["clicks"],
+                             reason)
+        except OSError:
+            pass
+        self._watch_hwnd, self._log_watch = None, None
+        if reason in ("closed", "disconnected"):
+            notify.play_sound("alert", self.root.bell)
+        elif self.settings["sounds"]:
             notify.play_sound("stop", self.root.bell)
+        count = info["loops"] if info["kind"] == "macro" else info["clicks"]
         if reason == "time_limit":
-            self.show_toast(tr("toast_time_limit_" + kind, n=fmt_int(count)))
-        elif reason == "done" and kind == "macro":
+            self.show_toast(tr("toast_time_limit_" + info["kind"], n=fmt_int(count)))
+        elif reason == "done" and info["kind"] == "macro":
             self.show_toast(tr("toast_finished", n=count))
-        if self.settings["notify_finished"] and reason in ("time_limit", "done"):
-            msg = (tr("msg_finished_macro", name=self._run["name"], n=count, time=elapsed) if kind == "macro"
-                   else tr("msg_finished_clicker", n=fmt_int(self._run["clicks"]), time=elapsed))
-            self._webhook(msg)
+        if reason in ("done", "time_limit"):
+            self.alert("finished", reason=tr("end_" + reason))
+        elif reason == "stopped":
+            self.alert("stopped")
+        elif reason == "closed":
+            self.alert("closed")
+        elif reason == "disconnected":
+            self.alert("disconnected", reason=detail or tr("dc_unknown"))
+        self.ui.refresh_history()
 
-    def _game_closed(self):
-        name, elapsed = self._run["name"], fmt_length(self.run_elapsed())
-        self._watch_hwnd = None
+    def _watch_game(self, now):
+        """Once a second while running: Roblox closed? disconnected? status
+        update due? paused too long?"""
+        if self._watch_hwnd and not window_exists(self._watch_hwnd):
+            self._game_gone("closed")
+            return
+        if self._log_watch:
+            ev = self._log_watch.poll()
+            if ev:
+                self._game_gone("disconnected", self.disconnect_reason(ev))
+                return
+        a = self.settings["alerts"]
+        every = num(self.settings.get("status_every"), 30, float, 1) * 60
+        if a["status"]["on"] and now - self._last_status >= every:
+            self._last_status = now
+            self.alert("status")
+        if self.paused:
+            if self._paused_since is None:
+                self._paused_since = now
+            limit = num(self.settings.get("paused_after"), 10, float, 1) * 60
+            if not self._paused_alerted and now - self._paused_since >= limit and a["paused"]["on"]:
+                self._paused_alerted = True
+                self.alert("paused")
+        else:
+            self._paused_since, self._paused_alerted = None, False
+
+    @staticmethod
+    def disconnect_reason(ev):
+        code, text = ev.get("code"), ev.get("text")
+        if code in DC_KNOWN:
+            label = tr(DC_KNOWN[code])
+        elif text:
+            label = text
+        else:
+            label = tr("dc_unknown")
+        return f"{label} ({tr('dc_code', code=code)})" if code else label
+
+    def _game_gone(self, reason, detail=None):
+        self._end_run(reason, detail)
         self.stop_all()
-        notify.play_sound("alert", self.root.bell)
-        self.show_toast(tr("toast_game_closed"), ms=10000)
-        self._webhook(tr("msg_game_closed", name=name, time=elapsed))
+        key = "toast_game_closed" if reason == "closed" else "toast_disconnected"
+        self.show_toast(tr(key, reason=detail or ""), ms=10000)
         self.ui.show_main()
 
-    def _webhook(self, text_):
+    # ---- Discord alerts -----------------------------------------------------
+    def alert_values(self, reason=""):
+        info = self._run
+        from datetime import datetime
+
+        return {"macro": info.get("name") or "", "time": fmt_length(self.run_elapsed()),
+                "loops": fmt_int(info.get("loops", 0)), "clicks": fmt_int(info.get("clicks", 0)),
+                "reason": reason, "date": datetime.now().strftime("%d.%m.%Y %H:%M")}
+
+    def alert_text(self, kind):
+        custom = (self.settings["alerts"].get(kind) or {}).get("text") or ""
+        return custom.strip() or tr("alert_text_" + kind)
+
+    def alert(self, kind, reason="", test=False, done=None):
+        """Send one Discord alert if it's switched on (or always, for a test)."""
+        conf = self.settings["alerts"].get(kind) or {}
         url = self.settings.get("webhook", "")
-        if notify.is_webhook(url):
-            notify.send_discord(url, text_)
+        if not (test or conf.get("on")) or not notify.is_webhook(url):
+            return False
+        values = self.alert_values(reason or (tr("alert_test_reason") if test else ""))
+        if test and self.state not in ("playing", "clicking"):
+            values.update({"macro": "Punch bag", "time": fmt_length(5400), "loops": fmt_int(214),
+                           "clicks": fmt_int(1070)})
+        text = notify.fill(self.alert_text(kind), values)
+        title = tr("alert_title_" + kind)
+        color = notify.ALERT_DEFAULTS[kind][2]
+        ping = self.settings.get("discord_user") if conf.get("ping") else None
+        notify.send_discord(url, text, done, title=title, color=color, ping_user=ping)
+        return True
+
+    def test_alert(self, kind):
+        if not notify.is_webhook(self.settings.get("webhook", "")):
+            self.show_toast(tr("toast_webhook_bad"))
+            return
+        self.alert(kind, test=True, done=lambda ok, err: self.q.put(("webhook", ok, err)))
 
     def test_webhook(self):
         url = self.settings.get("webhook", "")
         if not notify.is_webhook(url):
             self.show_toast(tr("toast_webhook_bad"))
             return
-        notify.send_discord(url, tr("msg_test"), lambda ok, err: self.q.put(("webhook", ok, err)))
+        notify.send_discord(url, tr("msg_test"), lambda ok, err: self.q.put(("webhook", ok, err)),
+                            title=tr("alert_title_test"), color=0xB01F7A,
+                            ping_user=self.settings.get("discord_user"))
+
+    def clear_history(self):
+        self.history.clear()
+        self.ui.refresh_history()
+        self.show_toast(tr("toast_history_cleared"))
 
     def check_updates_now(self):
         self.show_toast(tr("toast_checking"))
@@ -814,7 +947,7 @@ class App:
                                humanize=s["humanize"] / 100.0, move_to_clicks=s["move_to_clicks"],
                                stop_after=s["stop_after"] * 60.0)
         if ok:
-            self._begin_run(self.active.name if self.active else "")
+            self._begin_run(self.active.name if self.active else "", "macro")
             self._run["total"] = n
             if self.active:
                 try:
@@ -847,7 +980,7 @@ class App:
         ok = self.clicker.start(cps=s["cps"], button=s["click_button"], vary=0.15 if s["click_vary"] else 0.0,
                                 point=point, stop_after=s["stop_after"] * 60.0)
         if ok:
-            self._begin_run(tr("autoclicker"))
+            self._begin_run(tr("autoclicker"), "clicker")
             self._set_state("clicking")
 
     def stop_clicker(self):
@@ -889,9 +1022,11 @@ class App:
         elif self.state == "countdown":
             self.cancel_countdown()
         elif self.state == "playing":
+            self._end_run("stopped")
             self.player.stop(wait=True)
             self._set_state("idle")
         elif self.state == "clicking":
+            self._end_run("stopped")
             self.clicker.stop(wait=True)
             self._set_state("idle")
         if toast and was in ("playing", "clicking"):
@@ -947,6 +1082,8 @@ class App:
         self.quit()
 
     def quit(self):
+        if self.state in ("playing", "clicking"):
+            self._end_run("stopped")
         try:
             self.player.stop(wait=True)
             self.clicker.stop(wait=True)

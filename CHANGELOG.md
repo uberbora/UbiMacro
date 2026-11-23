@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- **Discord alerts**, each with its own on/off switch, editable message, "ping me" option and test button: Roblox closed, **disconnected from the server** (kicked, server shut down, lost connection, idle kick; read from Roblox's log), finished, status update every N minutes, paused for a while, started, stopped.
+- Alerts arrive as coloured Discord cards and can **@mention you** (add your Discord user ID) so your phone buzzes.
+- Custom messages with `{macro}` `{time}` `{loops}` `{clicks}` `{reason}` `{date}`.
+- **Recent runs** in the Library: what ran, when, for how long and how it ended.
+- UbiMacro now also stops when Roblox disconnects you, not only when it closes.
+
 ## 1.3.1
 
 - Fixed: in the Library, the ⋯ menu, the star and the "Set key" button didn't work. Clicking them selected the row (and redrew the list) instead, so you couldn't rename or delete a macro.
