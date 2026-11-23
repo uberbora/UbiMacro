@@ -297,11 +297,23 @@ def tag(parent, initials, active=False):
 
 
 def bind_click(widget, command):
-    """Make a whole row clickable (frames and labels don't take commands)."""
+    """Make a whole row clickable (frames and labels don't take commands).
+
+    Buttons, entries, switches and other controls inside the row keep their
+    own clicks. (CTk buttons are tk.Frames underneath, so they must be
+    skipped explicitly or the row would swallow their clicks.)
+    """
+    if is_control(widget):
+        return
     widget.bind("<Button-1>", lambda e: command())
     for child in widget.winfo_children():
         if isinstance(child, (ctk.CTkFrame, ctk.CTkLabel, tk.Label, tk.Frame, tk.Canvas)):
             bind_click(child, command)
+
+
+def is_control(widget):
+    return isinstance(widget, (ctk.CTkButton, ctk.CTkEntry, ctk.CTkSegmentedButton, ctk.CTkSwitch,
+                               ctk.CTkOptionMenu, ctk.CTkScrollbar, Switch, RoundButton))
 
 
 def stat_tiles(parent, items):
