@@ -88,7 +88,49 @@ class LibraryPage(Page):
             kit.text(box, tr("preset_name"), "body600", 15).pack(fill="x")
             kit.text(box, tr("preset_sub"), "body", 13, "muted").pack(fill="x")
             kit.bind_click(row, self.app.add_preset)
-        kit.hint(area, tr("library_hint"), wrap=430).pack(fill="x", padx=12, pady=(12, 16))
+        kit.hint(area, tr("library_hint"), wrap=430).pack(fill="x", padx=12, pady=(12, 0))
+        if self.filter == "all" and not q:
+            self._history(area)
+        else:
+            kit.frame(area).pack(pady=8)
+
+    # ---------------------------------------------------------------- recent runs
+    def _history(self, area):
+        from datetime import datetime
+
+        from ..app import fmt_int, fmt_length
+
+        runs = self.app.history.entries()[:15]
+        kit.section(area, tr("recent_runs"), pady=(22, 10), padx=12,
+                    action=tr("clear") if runs else None, action_cmd=self.app.clear_history)
+        if not runs:
+            kit.hint(area, tr("recent_empty"), wrap=430).pack(fill="x", padx=12, pady=(0, 16))
+            return
+        lst = kit.card(area, radius=R_LIST)
+        lst.pack(fill="x", padx=12, pady=(0, 16))
+        pills = {"done": ("end_done", "gain_bg", "gain"), "time_limit": ("end_time_limit", "gain_bg", "gain"),
+                 "stopped": ("end_stopped", "surface2", "ink"), "closed": ("end_closed", "loss_bg", "loss"),
+                 "disconnected": ("end_disconnected", "loss_bg", "loss"), "error": ("end_error", "loss_bg", "loss")}
+        for i, r in enumerate(runs):
+            row = kit.frame(lst)
+            row.pack(fill="x", padx=14, pady=10)
+            label, bg, fg = pills.get(r.get("end"), pills["stopped"])
+            p = kit.pill(row)
+            kit.set_pill(p, tr(label), bg, fg)
+            p.pack(side="right")
+            box = kit.frame(row)
+            box.pack(side="left", fill="x", expand=True, padx=(0, 8))
+            when = datetime.fromtimestamp(r.get("start", 0)).strftime("%d.%m.%Y %H:%M")
+            kit.text(box, tr("run_title", name=r.get("name") or "?", time=fmt_length(r.get("seconds", 0))),
+                     "body600", 15, wraplength=290).pack(fill="x")
+            count = (tr("n_loops", n=fmt_int(r.get("loops", 0))) if r.get("kind") == "macro"
+                     else tr("n_clicks", n=fmt_int(r.get("clicks", 0))))
+            kit.text(box, f"{when} · {count}", "body", 13, "muted").pack(fill="x")
+            if i < len(runs) - 1:
+                ctk.CTkFrame(lst, height=1, fg_color=C["line"], corner_radius=0).pack(fill="x", padx=14)
+
+    def refresh_history(self):
+        self.refresh()
 
     def _row(self, parent, e, last, first=False):
         active = self.app.active is not None and self.app.active.id == e.id

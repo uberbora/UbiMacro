@@ -115,7 +115,23 @@ class SettingsPage(Page):
         kit.button(line, tr("test"), self.app.test_webhook, height=36, size=13).pack(side="left", padx=(8, 0))
         kit.text(box, tr("webhook_sub"), "body", 12, "muted", wraplength=400).pack(fill="x", pady=(6, 0))
         kit.divider(blk)
-        self._switch_row(blk, "notify_finished", tr("notify_finished"), tr("notify_finished_sub"), last=True)
+        box = kit.frame(blk)
+        box.pack(fill="x", padx=14, pady=(11, 13))
+        kit.eyebrow(box, tr("discord_user")).pack(fill="x", pady=(0, 6))
+        self.v_user = tk.StringVar(value=s.get("discord_user", ""))
+        self.v_user.trace_add("write", lambda *_a: self.app.set_setting(
+            "discord_user", "".join(ch for ch in self.v_user.get() if ch.isdigit())))
+        kit.entry(box, self.v_user, 200, placeholder="123456789012345678").pack(fill="x")
+        kit.text(box, tr("discord_user_sub"), "body", 12, "muted", wraplength=400).pack(fill="x", pady=(6, 0))
+
+        # Discord alerts
+        kit.section(f, tr("alerts"))
+        self.alerts_card = kit.card(f)
+        self.alerts_card.pack(fill="x", padx=16)
+        self.open_alert = None
+        self.alert_rows = {}
+        self._render_alerts()
+        kit.hint(f, tr("alerts_hint")).pack(fill="x", padx=16, pady=(8, 0))
 
         # window
         kit.section(f, tr("window"))
@@ -148,6 +164,92 @@ class SettingsPage(Page):
         kit.text(row, tr("storage_text"), "body", 13, "muted", wraplength=270).pack(side="left")
         kit.text(f, f"UbiMacro {__version__}", "mono", 11, "muted").pack(fill="x", padx=16, pady=(18, 20))
         self.refresh_hotkeys()
+
+    # ---------------------------------------------------------------- alerts
+    def _render_alerts(self):
+        from .. import notify
+
+        for w in self.alerts_card.winfo_children():
+            w.destroy()
+        keys = notify.ALERTS
+        for i, key in enumerate(keys):
+            self._alert_row(key, last=i == len(keys) - 1)
+
+    def _alert_row(self, key, last):
+        conf = self.s["alerts"][key]
+        row = kit.frame(self.alerts_card)
+        row.pack(fill="x", padx=14, pady=11)
+        var = tk.BooleanVar(value=bool(conf["on"]))
+
+        def toggled():
+            conf["on"] = bool(var.get())
+            self.app.save_settings()
+
+        kit.switch(row, "", var, toggled).pack(side="right")
+        opened = self.open_alert == key
+        kit.link_button(row, tr("done") if opened else tr("edit"),
+                        lambda: self._toggle_alert(key)).pack(side="right", padx=(0, 6))
+        box = kit.frame(row)
+        box.pack(side="left", fill="x", expand=True)
+        kit.text(box, tr("alert_title_" + key), "body", 15, wraplength=300).pack(fill="x")
+        kit.text(box, tr("alert_sub_" + key), "body", 13, "muted", wraplength=300).pack(fill="x")
+        if opened:
+            self._alert_editor(key, conf)
+        if not last:
+            kit.divider(self.alerts_card)
+
+    def _toggle_alert(self, key):
+        self.open_alert = None if self.open_alert == key else key
+        self._render_alerts()
+
+    def _alert_editor(self, key, conf):
+        from ..theme import C, R_CONTROL
+
+        ed = ctk.CTkFrame(self.alerts_card, fg_color=C["surface2"], corner_radius=R_CONTROL)
+        ed.pack(fill="x", padx=14, pady=(0, 12))
+        kit.eyebrow(ed, tr("message")).pack(fill="x", padx=12, pady=(10, 6))
+        box = ctk.CTkTextbox(ed, height=72, corner_radius=R_CONTROL, fg_color=C["surface"], border_width=1,
+                             border_color=C["outline"], text_color=C["ink"], font=kit.th.font("body", 14),
+                             wrap="word")
+        box.pack(fill="x", padx=12)
+        box.insert("1.0", self.app.alert_text(key))
+
+        def save(_e=None):
+            text = box.get("1.0", "end").strip()
+            conf["text"] = "" if text == tr("alert_text_" + key) else text
+            self.app.save_settings()
+
+        box.bind("<KeyRelease>", save)
+        box.bind("<FocusOut>", save)
+        kit.text(ed, tr("placeholders_hint"), "body", 12, "muted", wraplength=400).pack(fill="x", padx=12,
+                                                                                       pady=(6, 0))
+        if key in ("status", "paused"):
+            setting = "status_every" if key == "status" else "paused_after"
+            frow = kit.frame(ed)
+            frow.pack(fill="x", padx=12, pady=(10, 0))
+            v = tk.StringVar(value=self.num_text(self.s[setting]))
+            self.bind_number(v, setting, float, 1, 1440)
+            kit.entry(frow, v, 64, 32).pack(side="right")
+            kit.text(frow, tr("every_min" if key == "status" else "after_min"), "body", 14).pack(side="left")
+        brow = kit.frame(ed)
+        brow.pack(fill="x", padx=12, pady=(10, 12))
+        pv = tk.BooleanVar(value=bool(conf.get("ping")))
+
+        def ping_changed():
+            conf["ping"] = bool(pv.get())
+            self.app.save_settings()
+
+        kit.switch(brow, tr("ping_me"), pv, ping_changed, bg_key="surface2").pack(side="left")
+
+        def reset():
+            conf["text"] = ""
+            self.app.save_settings()
+            box.delete("1.0", "end")
+            box.insert("1.0", tr("alert_text_" + key))
+
+        kit.button(brow, tr("reset"), reset, height=32, size=13).pack(side="right")
+        kit.button(brow, tr("send_test"), lambda: (save(), self.app.test_alert(key)), "soft", height=32,
+                   size=13).pack(side="right", padx=(0, 6))
 
     def _switch_row(self, parent, key, title, sub, last=False, after=None):
         var = tk.BooleanVar(value=bool(self.s.get(key)))

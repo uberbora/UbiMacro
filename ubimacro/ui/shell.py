@@ -107,6 +107,9 @@ class Shell:
         if self.mini:
             self.mini.refresh()
 
+    def refresh_history(self):
+        self.pages["library"].refresh_history()
+
     def refresh_update(self):
         self.pages["home"].refresh_update()
 

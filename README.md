@@ -71,10 +71,18 @@ and right-click (or ⋯) to rename, duplicate, change the key, export or delete.
 - **Safety:** pause when you touch the mouse or keyboard and pick up again after a few quiet seconds; stop and alert you if Roblox closes; only play while Roblox is in front.
 - **Recording:** record mouse movement, remove the start delay, countdown, long-pause limit.
 - **Playback:** switch to Roblox when you press Play in the window; move the mouse to recorded click spots.
-- **Notifications:** start/stop sounds; a **Discord webhook** so your phone gets a message if Roblox closes or a run finishes (Discord: Server settings › Integrations › Webhooks › New webhook › Copy link).
+- **Notifications:** start/stop sounds, a **Discord webhook** (Discord: Server settings › Integrations › Webhooks › New webhook › Copy link) and your **Discord user ID** so alerts can @mention you and make your phone buzz.
+- **Discord alerts:** switch each one on or off, edit its message, choose whether it pings you, and send a test:
+  - **Roblox closed:** the window closed or crashed.
+  - **Disconnected:** kicked, server shut down, lost connection, or the 20-minute idle kick. UbiMacro reads this from Roblox's own log file (`%LOCALAPPDATA%\Roblox\logs`), because the window stays open when you're disconnected. Leaving a game yourself doesn't count.
+  - **Finished**, **Status update** (every N minutes), **Paused for a while**, **Started**, **Stopped**.
+  - Messages can use `{macro}` `{time}` `{loops}` `{clicks}` `{reason}` `{date}` and `**bold**`.
 - **Window:** keep on top, start in mini mode, close to the tray.
 - **Updates:** check for a newer release on start.
 - **Language:** English / Türkçe. **Theme:** System / Light / Dark.
+
+**Recent runs** (bottom of the Library): what ran, when, for how long, how many loops or clicks, and how it
+ended (finished, time's up, stopped, Roblox closed, disconnected). The last 100 runs are kept.
 
 **Mini mode:** a small bar that stays on top of the game with the status, the
 timer and a start/stop button. Drag it anywhere, and press ⤢ or F9 to get the full window back.
@@ -118,7 +126,9 @@ ubimacro/recorder.py      recording
 ubimacro/library.py       the macro library (one .json per macro)
 ubimacro/macro.py         macro files, timeline model and editing helpers
 ubimacro/backends.py      Windows SendInput scancode backend (+ pynput fallback)
-ubimacro/notify.py        sounds, Discord webhook, update check
+ubimacro/notify.py        sounds, Discord alerts (cards, templates, pings), update check
+ubimacro/robloxlog.py     reads Roblox's log to notice disconnects
+ubimacro/history.py       recent runs
 ubimacro/winfocus.py      finding / focusing the Roblox window, system language
 ubimacro/theme.py         Ubi colours and fonts
 ubimacro/i18n.py          English and Turkish text
