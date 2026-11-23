@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+- Fixed: in the Library, the ⋯ menu, the star and the "Set key" button didn't work. Clicking them selected the row (and redrew the list) instead, so you couldn't rename or delete a macro.
+
 ## 1.3.0
 
 A redesign on the Ubi design system, and a lot of new features.
